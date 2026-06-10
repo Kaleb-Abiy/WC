@@ -90,11 +90,14 @@ async def list_players(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         lines = ["*Players* — id · status · name (picks)"]
         for p in players:
             icon = _STATUS_ICON.get(p.status.value, "•")
+            # Enum values like PENDING_DEPOSIT contain underscores that break Markdown;
+            # render a readable, underscore-free label instead.
+            status_label = p.status.value.replace("_", " ").title()
             handle = f"@{esc(p.username)}" if p.username else "—"
             n = pick_counts.get(p.id, 0)
             admin_tag = " 👑" if p.is_admin else ""
             lines.append(
-                f"`{p.id}` {icon} {esc(p.display_name)} ({handle}) — {p.status.value} · {n} pick(s){admin_tag}"
+                f"`{p.id}` {icon} {esc(p.display_name)} ({handle}) — {status_label} · {n} pick(s){admin_tag}"
             )
         lines.append("\nApprove with `/approve <id>` (or `/approve @username`).")
     await reply(update, "\n".join(lines), parse_mode=ParseMode.MARKDOWN)

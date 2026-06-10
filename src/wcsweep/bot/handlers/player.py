@@ -243,7 +243,7 @@ async def draft_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
         order_names = " → ".join(esc(p.display_name) for p in info["order"] if p)
         lines = [
-            f"*Draft* — {info['status'].value}",
+            f"*Draft* — {info['status'].value.replace('_', ' ').title()}",
             f"Drawn: {info['picked_count']}/{info['total']} players",
             f"Order: {order_names}",
         ]
