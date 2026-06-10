@@ -17,6 +17,7 @@ from telegram.ext import (
 
 from ..config import get_settings
 from ..db import init_db
+from .commands import configure_commands
 from .handlers import admin, player
 from .jobs import poll_job
 
@@ -32,7 +33,12 @@ def build_application() -> Application:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is not set (see .env.example).")
 
     init_db()
-    app = Application.builder().token(settings.telegram_bot_token).build()
+    app = (
+        Application.builder()
+        .token(settings.telegram_bot_token)
+        .post_init(configure_commands)  # populate the '/' command menus
+        .build()
+    )
 
     # Player commands
     app.add_handler(CommandHandler("start", player.start))
