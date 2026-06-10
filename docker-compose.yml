@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wcsweep
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wcsweep}
+      POSTGRES_DB: wcsweep
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wcsweep -d wcsweep"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  bot:
+    build: .
+    env_file: .env
+    # DATABASE_URL points at the db service; overrides whatever is in .env.
+    environment:
+      DATABASE_URL: postgresql+psycopg://wcsweep:${POSTGRES_PASSWORD:-wcsweep}@db:5432/wcsweep
+      SEED_ON_START: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
