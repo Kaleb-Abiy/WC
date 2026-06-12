@@ -96,6 +96,34 @@ def test_start_requires_two_players(session, make_player, make_team):
         draft.start(session, seed="z")
 
 
+def test_five_team_allocation(session, make_player, make_team, monkeypatch):
+    """With TEAMS_PER_PLAYER=5 each /pick turn draws 5 unique teams."""
+    from wcsweep.config import get_settings
+
+    monkeypatch.setenv("TEAMS_PER_PLAYER", "5")
+    get_settings.cache_clear()
+    try:
+        a = make_player("Alice")
+        b = make_player("Bob")
+        for i in range(12):  # 2 players x 5 = 10 needed
+            make_team(f"T{i}")
+
+        draft.start(session, seed="five")
+        while draft.get_draft(session).status == DraftStatus.RUNNING:
+            pid = draft.current_player_id(session)
+            teams = draft.draw_for_player(session, pid)
+            assert len(teams) == 5
+
+        a_picks = picks.player_picks(session, a.id)
+        b_picks = picks.player_picks(session, b.id)
+        assert len(a_picks) == 5 and len(b_picks) == 5
+        assert [p.pick_order for p in a_picks] == [1, 2, 3, 4, 5]
+        all_teams = [p.team_id for p in a_picks + b_picks]
+        assert len(set(all_teams)) == 10  # no shared teams
+    finally:
+        get_settings.cache_clear()  # back to the suite default (2)
+
+
 def test_start_requires_enough_teams(session, make_player, make_team):
     make_player("Alice")
     make_player("Bob")

@@ -10,7 +10,7 @@ manual override). The admin web dashboard (Phase 2b) is still ahead.
 
 ## Rules
 
-- Each player is **drawn 2 random teams** (teams are assigned, not chosen); every team is
+- Each player is **drawn 5 random teams** (`TEAMS_PER_PLAYER`) (teams are assigned, not chosen); every team is
   owned by exactly one player.
 - Scoring (all stages): **win = 3, draw = 1, loss = 0**. A knockout decided on penalties
   awards the **shootout winner the 3-point win** (configurable).

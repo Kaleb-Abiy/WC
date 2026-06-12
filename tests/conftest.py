@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import os
+
+# Pin the allocation size the suite was written against, regardless of the
+# developer's .env (env vars beat .env in pydantic-settings). Individual tests
+# that need a different value monkeypatch + cache-clear get_settings.
+os.environ["TEAMS_PER_PLAYER"] = "2"
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from wcsweep.config import get_settings
 from wcsweep.models import Base
+
+get_settings.cache_clear()
 
 
 @pytest.fixture()

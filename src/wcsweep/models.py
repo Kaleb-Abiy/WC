@@ -155,14 +155,15 @@ class Pick(Base):
     __tablename__ = "picks"
     __table_args__ = (
         UniqueConstraint("team_id", name="uq_pick_team"),  # one team -> one player
-        CheckConstraint("pick_order in (1, 2)", name="ck_pick_order"),
+        # Upper bound (teams_per_player) is config, enforced in picks.assign.
+        CheckConstraint("pick_order >= 1", name="ck_pick_order"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), index=True)
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     pick_order: Mapped[int] = mapped_column(Integer)  # 1..teams_per_player
-    round_no: Mapped[int] = mapped_column(Integer, default=1)
+    round_no: Mapped[int] = mapped_column(Integer, default=1)  # slot index of the draw
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     player: Mapped[Player] = relationship(

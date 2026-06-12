@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # Game rules
     entry_amount: float = 10.0
     currency: str = "USD"
-    teams_per_player: int = 2
+    teams_per_player: int = 5
     ko_penalty_as_draw: bool = False
     draft_turn_seconds: int = 43_200  # 12h
     timezone: str = "UTC"

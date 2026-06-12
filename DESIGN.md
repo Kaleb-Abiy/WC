@@ -4,7 +4,7 @@
 
 A Telegram bot that runs a private World Cup 2026 sweepstake for a group of friends.
 The bot is the single source of truth: it registers players, tracks deposits (admin-approved),
-lets each player draft **2 unique teams**, ingests match results, scores them, maintains a live
+lets each player draw **5 unique teams** (config `TEAMS_PER_PLAYER`), ingests match results, scores them, maintains a live
 leaderboard, and declares a winner when the tournament ends (or when all of a player's teams are
 eliminated and no contest remains).
 
@@ -33,7 +33,7 @@ eliminated and no contest remains).
 
 | Role | Capabilities |
 |------|-------------|
-| **Player** | Register, pick 2 teams (while open), view own picks, view leaderboard, view fixtures/results. |
+| **Player** | Register, draw 5 teams (while open), view own picks, view leaderboard, view fixtures/results. |
 | **Admin** | All player actions + approve/reject deposits, open/close registration & picking, override match results, force-recompute scores, declare/lock the game, manage players. |
 
 Admins are defined by a `ADMIN_TELEGRAM_IDS` env list (and an `is_admin` flag in DB).
@@ -74,12 +74,12 @@ Per team, per match the team plays:
 - **Knockout draws decided on penalties:** the **penalty shootout winner earns the 3-point win**;
   the loser gets 0. (Group decision — `KO_PENALTY_AS_DRAW=false`. Flip to `true` to instead count
   a penalty result as draw=1 for both.) The `pen_winner_team_id` on the match drives the outcome.
-- A player's score = sum of points across **both** their teams, across **every** match those teams play.
+- A player’s score = sum of points across **all** their teams, across **every** match those teams play.
 - Teams that advance further play more matches → more scoring opportunities (this is the core skill/luck of the draft).
 
 ### Winner & tie-breakers (in order)
 1. Highest total points.
-2. Most wins (across both teams).
+2. Most wins (across all owned teams).
 3. Higher goal difference of owned teams (goals scored − conceded in matches played).
 4. Most goals scored by owned teams.
 5. Coin flip (admin `/breaktie` — recorded with a seed for auditability).
@@ -109,7 +109,7 @@ fairness comes purely from randomness, and the recorded seed makes the whole dra
    order is reproducible/auditable — anyone can verify it wasn't rigged). The bot also checks
    there are enough teams in the pool (`players × TEAMS_PER_PLAYER`).
 2. **One turn each:** going through that order, each player runs `/pick` on their turn and the bot
-   **draws their full allocation** (`TEAMS_PER_PLAYER`, default 2) of random teams from the
+   **draws their full allocation** (`TEAMS_PER_PLAYER`, default 5) of random teams from the
    available pool at once. No snake/rounds — a single pass, since random draws give no pick
    advantage to offset. Taken teams are excluded (enforced by `UNIQUE(team_id)`).
 3. **Determinism:** each draw is seeded from `"{seed}:draw:{index}"`, so given the seed the entire
@@ -160,11 +160,11 @@ picks
   id (pk)
   player_id (fk)
   team_id (fk, UNIQUE)             # <-- enforces global unique ownership
-  pick_order        smallint (1..2)   # which of the player's 2 slots
-  round_no          smallint (1..2)   # slot index within the player's allocation
+  pick_order        smallint (1..N)   # slot within the player allocation
+  round_no          smallint (1..N)   # slot index of the draw
   created_at
   UNIQUE(team_id)                  # one team -> one player
-  CHECK count per player <= 2      # enforced in app logic + partial constraint
+  CHECK count per player <= TEAMS_PER_PLAYER   # enforced in app logic
 
 draft                              # singleton row; the randomized draw
   id (pk = 1)
@@ -224,7 +224,7 @@ always derivable from the immutable ledger, so recompute is safe and auditable.
 | `/deposit` | Submit deposit intent (optionally attach screenshot) |
 | `/pick` | When it's your turn: bot **draws** your random teams (no choosing) |
 | `/draft` | Show draft status: order, whose turn, who's on the clock, your upcoming pick |
-| `/mypicks` | Show your 2 teams + their points |
+| `/mypicks` | Show your teams + their points |
 | `/leaderboard` | Live standings |
 | `/fixtures` | Upcoming + recent matches involving owned teams |
 | `/teams` | List teams with availability (taken/free) |
@@ -301,7 +301,7 @@ telegram <──> bot (python-telegram-bot, async handlers)
 
 `SETUP` → admin seeds teams & fixtures
 `REGISTRATION` → players join + deposit
-`PICKING` → each approved player runs /pick and is drawn 2 random unique teams (§5b)
+`PICKING` → each approved player runs /pick and is drawn 5 random unique teams (§5b)
 `RUNNING` → picks locked, results flow in, leaderboard live
 `FINISHED` → winner declared, board frozen
 
@@ -311,7 +311,7 @@ Transitions are admin-driven commands; some auto-suggest (e.g. bot nudges admin 
 
 ## 12. Edge Cases & Decisions
 
-- **Not enough teams:** 48 teams ÷ 2 = max **24 players**. Bot blocks the 25th pick attempt and warns admin as availability runs low.
+- **Not enough teams:** 48 teams ÷ 5 = max **9 players**. `/startdraft` refuses to begin if the pool is short.
 - **Player misses their draft turn:** bot auto-picks a random available team after `DRAFT_TURN_SECONDS` and advances (so the draft never stalls). Admin `/skipturn` forces it manually.
 - **Deposit rejected after picking:** picks released back to the pool, player → PENDING_DEPOSIT. (Best handled before `/startdraft`; if mid-draft, admin re-runs affected turns.)
 - **Draft fairness audit:** the shuffle `seed` is stored, so the order can be re-derived and verified by anyone — no hidden RNG.
